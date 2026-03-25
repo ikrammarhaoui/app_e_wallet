@@ -16,6 +16,22 @@ const beneficiarySelect = document.getElementById("beneficiary");
 const sourceCard = document.getElementById("sourceCard");
 const submitTransferBtn=document.getElementById("submitTransferBtn");
 
+
+// DOM - Rechargement
+const topupBtn       = document.getElementById("quickTopup");
+const topupSection   = document.getElementById("topupPopup");
+const closeTopupBtn  = document.getElementById("closeTopupBtn");
+const cancelTopupBtn = document.getElementById("cancelTopupBtn");
+const topupCardSelect = document.getElementById("topupCard");
+const submitTopupBtn = document.getElementById("submitTopupBtn");
+const topupMessage   = document.getElementById("topupMessage");
+topupBtn.addEventListener("click", handleTopupSection);
+closeTopupBtn.addEventListener("click", closeTopup);
+cancelTopupBtn.addEventListener("click", closeTopup);
+submitTopupBtn.addEventListener("click", handleTopup);
+
+
+
 // Guard
 if (!user) {
   alert("User not authenticated");
@@ -278,7 +294,7 @@ const debit={
 function transfer(expediteur, numcompte, amount){
 
   checkUser(numcompte).then(destinataire => {
-      console.log("Étape 1: Beneficiary found -", destinataire.name);
+      console.log("Étape 1: Beneficiary found ", destinataire.name);
     return checkSolde(expediteur, amount).then(() => destinataire);   })
     .then(destinataire => {
       console.log("Étape 2: Sufficient balance");
@@ -291,8 +307,11 @@ function transfer(expediteur, numcompte, amount){
     })
     .then(message => {
       console.log("Étape 4:", message);
-      renderDashboard();   
+      renderDashboard();   closeTransfer(); 
    })
+    .catch(error => {
+      console.log("Erreur :", error);
+    });
 }
 
 function handleTransfer(e) {
@@ -300,7 +319,6 @@ function handleTransfer(e) {
   const beneficiaryId = document.getElementById("beneficiary").value;
   const beneficiaryAccount=findbeneficiarieByid(user.id,beneficiaryId).account;
   const sourceCard = document.getElementById("sourceCard").value;
-
   const amount = Number(document.getElementById("amount").value);
 
 transfer(user, beneficiaryAccount, amount);
@@ -326,3 +344,67 @@ transfer(user, beneficiaryAccount, amount);
 
     func1(4,produit);
     */
+
+    //Recharger
+// Vérifier que le paiement est valide (carte sélectionnée et non expirée)
+function checkCard(cardNumber) {
+  return new Promise((resolve, reject) => {
+    if (!user) return reject("Utilisateur non authentifié");
+    if (user.wallet.cards.length === 0) return reject("Pas de carte active");
+
+    const selectedCard = user.wallet.cards.find(card =>
+      new Date(card.expiry) > new Date() &&
+      card.numcards === cardNumber
+    );
+
+    if (!selectedCard) return reject("Carte invalide ou expirée");
+    resolve(selectedCard);
+  });
+}
+
+function checkAmount(amount) {
+  return new Promise((resolve, reject) => {
+    if (amount < 10 || amount > 5000) return reject("Montant invalide (min 10 et max 5000 MAD)");
+    resolve(amount);
+  });
+}
+
+function processTopup(card, amount) {
+  return new Promise((resolve) => {
+    user.wallet.balance += amount;
+
+    const rechargeTransaction = {
+      id: Date.now(),
+      type: "recharge",
+      amount: amount,
+      date: new Date().toLocaleDateString(),
+      card: card.numcards
+    };
+
+    user.wallet.transactions.push(rechargeTransaction);
+    resolve("Rechargement effectué avec succès");
+  });
+}
+
+function moyenne_paiement() {
+  const amount = Number(document.getElementById("topupAmount").value);
+  const cardNumber = document.getElementById("topupCard").value;
+
+  checkAmount(amount)
+    .then(() => checkCard(cardNumber))
+    .then(selectedCard => processTopup(selectedCard, amount))
+    .then(message => {
+      console.log(message);
+      renderDashboard();
+      closeTopup();
+    })
+    .catch(error => console.log(error));
+}
+
+
+//• Le montant doit être strictement supérieur à zéro. 
+
+function closeTopup() {
+  topupSection.classList.remove("active");
+  document.body.classList.remove("popup-open");
+}
