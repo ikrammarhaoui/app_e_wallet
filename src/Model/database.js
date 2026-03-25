@@ -70,3 +70,14 @@ export const finduserbyaccount=(numcompte)=>{
 
 
 
+export function getCardByNum(userId, numcard) {
+    const user = database.users.find(u => u.id === userId);
+    if (!user) return null;
+    return user.wallet.cards.find(card => card.numcards === numcard) || null;
+}
+
+export function isCardExpired(card) {
+    const today = new Date();
+    const expiryDate = new Date(card.expiry); // YYYY-MM-DD
+    return today > expiryDate;
+}
