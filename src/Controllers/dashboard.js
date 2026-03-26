@@ -15,17 +15,14 @@ const cancelTransferBtn = document.getElementById("cancelTransferBtn");
 const beneficiarySelect = document.getElementById("beneficiary");
 const sourceCard = document.getElementById("sourceCard");
 const submitTransferBtn=document.getElementById("submitTransferBtn");
-
-// DOM - Rechargement
-const topupBtn       = document.getElementById("quickTopup");
-const topupSection   = document.getElementById("topupPopup");
-const closeTopupBtn  = document.getElementById("closeTopupBtn");
-const cancelTopupBtn = document.getElementById("cancelTopupBtn");
-const topupCardSelect = document.getElementById("topupCard");
-const submitTopupBtn = document.getElementById("submitTopupBtn");
-const topupMessage   = document.getElementById("topupMessage");
-
-// Guard
+//
+const topupSection    = document.getElementById("topupPopup");      // ton popup a id="topupPopup"
+const topupCardSelect = document.getElementById("topupCard");       // ton select a id="topupCard"
+const submitTopupBtn  = document.getElementById("submitTopupBtn");
+const closeTopupBtn   = document.getElementById("closeTopupBtn");
+const cancelTopupBtn  = document.getElementById("cancelTopupBtn");
+const topupMessage    = document.getElementById("rechargerMessage"); // tu n'as pas cet élément dans HTML, tu peux créer un <p id="rechargerMessage"></p> dans le popup
+const topupBtn = document.getElementById("quickTopup"); 
 if (!user) {
   alert("User not authenticated");
   window.location.href = "/index.html";
@@ -37,10 +34,12 @@ if (!user) {
   cancelTransferBtn.addEventListener("click", closeTransfer);
   submitTransferBtn.addEventListener("click",handleTransfer)
 
-  topupBtn.addEventListener("click", handleTopupSection);
-  closeTopupBtn.addEventListener("click", closeTopup);
-  cancelTopupBtn.addEventListener("click", closeTopup);
-  submitTopupBtn.addEventListener("click", handleTopup);
+
+  //
+topupBtn.addEventListener("click", handleTopupSection);
+closeTopupBtn.addEventListener("click", closeTopup);
+cancelTopupBtn.addEventListener("click", closeTopup);
+submitTopupBtn.addEventListener("click", handleTopup);
 
 // Retrieve dashboard data
 const getDashboardData = () => {
@@ -93,12 +92,22 @@ function closeTransfer() {
   transferSection.classList.remove("active");
   document.body.classList.remove("popup-open");
 }
-
+//recharge popup
+function closeTopup() {
+  topupSection.classList.remove("active");
+  document.body.classList.remove("popup-open");
+}
+//trans
 function handleTransfersection() {
   transferSection.classList.add("active");
   document.body.classList.add("popup-open");
 }
-
+//recharge
+function handleTopupSection() {
+  topupSection.classList.add("active");
+  document.body.classList.add("popup-open");
+  renderTopupCards(); // remplir le select des cartes
+}
 // Beneficiaries
 const beneficiaries = getbeneficiaries(user.id);
 
@@ -111,6 +120,7 @@ function renderBeneficiaries() {
   });
 }
 renderBeneficiaries();
+//trans
 function renderCards() {
   user.wallet.cards.forEach((card) => {
     const option = document.createElement("option");
@@ -119,9 +129,18 @@ function renderCards() {
     sourceCard.appendChild(option);
   });
 }
-
 renderCards();
-
+//recharge 
+function renderTopupCards() {
+  topupCardSelect.innerHTML = ''; // vide juste le select réel
+  user.wallet.cards.forEach(card => {
+    const option = document.createElement("option");
+    option.value = card.numcards;
+    option.textContent = `${card.type.toUpperCase()} **** ${card.numcards.slice(-4)}`;
+    topupCardSelect.appendChild(option);
+  });
+}
+renderTopupCards();
 //###################################  Transfer  #####################################################//
 
 // check function 
@@ -326,155 +345,108 @@ transfer(user, beneficiaryAccount, amount);
 
 } 
 
-/*
-    function func1(number,callback){
-        console.log("start function");
-       if(number%2===0){
-        console.log("start callback");
-        callback(number);
-        console.log("end callback");
-       }else{
-        
-       }
-       console.log("end function");
-    }
 
-    function produit(number){
-        console.log("the result is : ", (number*number));
-    }
-
-    func1(4,produit);
-    */
-  
-/*function m_paiement(){
-  if(!user){
-    alert("L'Utilisateur non authantifié.")
-    window.location.href="/index.html";
-  }
-  if(user.wallet.cards.length == 0){
-    alert("L'Utilisateur n'a aucun outil de paiment!!");
-    window.location.href="/index.html";
-  }
-  let today = new Date();
-  let expiry = new Date(cards.expiry);
-  const selectedCard = user.wallet.cards.find(cards => expiry > today && cards.numcards === selectedCardNumber)
-  if (expiry - today < 0) {
-    console.log("La carte a expiré !");
-    return;
-  }
-}*/
-
-//RECHARGEMENT
-
-function closeTopup() {
-  topupSection.classList.remove("active");
-  document.body.classList.remove("popup-open");
-}
-
-function handleTopupSection() {
-  topupSection.classList.add("active");
-  document.body.classList.add("popup-open");
-  renderTopupCards(); // remplir le select des cartes
-}
-
-function renderTopupCards() {
-  topupCardSelect.innerHTML = '<option value="" disabled selected>Sélectionner une carte</option>';
-  user.wallet.cards.forEach(card => {
-    const option = document.createElement("option");
- option.value = card.numcards;
- option.textContent = card.type + " " +card.numcards;
- topupCardSelect.appendChild(option);
-  });
-}
-
-function validateCard(userId, numcard) {
+//****************************Recharge********************************** */
+function verifierAmount(amount) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
-  const card = getCardByNum(userId, numcard);
-  if (!card) {
-    reject("L'utilisateur n'a aucune moyen de paiement.");
-  } else if (isCardExpired(card)) {
-    reject("Cette carte est expirée.");
- } else {
-    resolve(card);
-  }
-    }, 500);
-  });
-}
-
-function validateAmount(amount) {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-  if (!amount || amount <= 0) {
-    reject("Le montant doit être supérieur à zéro.");
-  } else if (amount < 10 && amount > 5000) {
-    reject("Le montant min est 10 MAD et le montant max est 5000 MAD.");
-  } else {
-    resolve(amount);
-  }
+      if (!amount  || amount <= 0) {
+        // AJOUT : rejet si montant absent, non numérique ou négatif/nul
+        reject("Le montant doit être > 0.");
+      } else if (amount < 10) {
+        // AJOUT : rejet si en dessous du minimum autorisé (10 MAD)
+        reject("Le montant min est 10 MAD.");
+      } else if (amount > 5000) {
+        // AJOUT : rejet si au dessus du maximum autorisé (5 000 MAD)
+        // CORRECTION : l'ancienne condition était (amount < 10 && amount > 5000),
+        //              logiquement impossible — corrigée en deux blocs distincts
+        reject("Le montant max est 5000 MAD.");
+      } else {
+        resolve(amount); 
+      }
     }, 300);
   });
 }
+
 
 function updateWalletBalance(amount) {
   return new Promise((resolve) => {
     setTimeout(() => {
-      user.wallet.balance += amount;
-      resolve("Solde mis à jour.");
+      user.wallet.balance += amount; 
+      resolve("changement de solde effectué");
     }, 400);
   });
 }
 
+
 function addRechargeTransaction(amount, card) {
   return new Promise((resolve) => {
-setTimeout(() => {
-  const transaction = {
- id: String(Date.now()),
- type: "recharge",
- amount: amount,
- date: new Date().toLocaleDateString("fr-FR"),
- from: card.type + card.numcards,
-    to: user.account
-  };
-  user.wallet.transactions.push(transaction);
-  resolve("Transaction RECHARGE enregistrée.");
+    setTimeout(() => {
+      const transaction = {
+        id:     String(Date.now()),
+        type:   "recharge",                                                    // AJOUT : nouveau type de transaction
+        amount: amount,
+        date:   new Date().toLocaleDateString("fr-FR"),
+        from:   `${card.type.toUpperCase()} **** ${card.numcards.slice(-4)}`,  // AJOUT : source = carte masquée
+        to:     user.account                                                    // AJOUT : destination = wallet de l'utilisateur
+      };
+      user.wallet.transactions.push(transaction); // AJOUT : ajout à l'historique de l'utilisateur
+      resolve("Transaction RECHARGE enregistrée.");
     }, 300);
   });
 }
 
+
+function validateCard(userId, numcard) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const card = user.wallet.cards.find(c => c.numcards === numcard);
+      if (card) {
+        resolve(card);
+      } else {
+        reject(new Error("Carte invalide ou non trouvée"));
+      }
+    }, 300);
+  });
+}
 function recharger(userId, numcard, amount) {
-  let validatedCard;
+  let validatedCard = user.wallet.cards.find(c => c.numcards === numcard);
+  if (!validatedCard) {
+      topupMessage.textContent = "Carte invalide !";
+      return;
+  }
 
-  validateCard(userId, numcard)
-    .then(card => {
-   console.log("Étape 1 : Carte valide ", card.type);
-   validatedCard = card;
-   return validateAmount(amount);
- })
- .then(validAmount => {
-   console.log("Étape 2 : Montant valide ", validAmount, "MAD");
-   return updateWalletBalance(validAmount);
- })
- .then(msg => {
-   console.log("Étape 3 :", msg);
-   return addRechargeTransaction(amount, validatedCard);
- })
- .then(msg => {
-   console.log("Étape 4 :", msg);
-   topupMessage.textContent = `Rechargement de ${amount} MAD effectué avec succès !`;
-    renderDashboard();
-   setTimeout(() => closeTopup(), 1500);
- })
- .catch(erreur => {
-    console.error("Erreur rechargement :", erreur);
+  submitTopupBtn.disabled    = true;
+  submitTopupBtn.textContent = "Traitement...";
+    verifierAmount(amount)
 
- });
+    .then(verifierAmount => {
+      console.log("Étape 2 : Montant valide ", verifierAmount, "MAD");
+      return updateWalletBalance(verifierAmount); 
+    })
+    .then(msg => {
+      console.log("Étape 3 :", msg);
+      return addRechargeTransaction(amount, validatedCard); 
+    })
+    .then(msg => {
+      console.log("Étape 4 :", msg);
+      topupMessage.textContent = ` Rechargement de ${amount} MAD effectué avec succès !`;
+      topupMessage.className   = "recharger-message success"; 
+      renderDashboard();                    
+      setTimeout(() => closeTopup(), 2000); 
+    })
+    .catch(error => {
+  console.log("Erreur lors du transfert :", error);
+});
+
+    
 }
 
 function handleTopup(e) {
   e.preventDefault();
-  topupMessage.textContent = "";
+  topupMessage.textContent = "";     
+  topupMessage.className   = "recharger-message"; 
   const numcard = topupCardSelect.value;
-  const amount = Number(document.getElementById("topupAmount").value);
+const amount = Number(document.getElementById("topupAmount").value);
   recharger(user.id, numcard, amount);
 }
